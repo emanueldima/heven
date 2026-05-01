@@ -1,0 +1,17 @@
+[package]
+name = "heven"
+version = "0.1.0"
+edition = "2024"
+authors = ["Emanuel Dima <emanueldima@gmail.com>"]
+publish = false
+
+[dependencies]
+winit = "0.30"
+wgpu = "29"
+anyhow = "1"
+env_logger = "0"
+log = "0"
+dirs = "2"
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
+cosmic-text = "0.19.0"
