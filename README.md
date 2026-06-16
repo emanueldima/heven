@@ -4,17 +4,16 @@ Heven is a small Rust UI platform layer built on `winit` and `wgpu`.
 
 The goal is to use it as a library: callers create an app, build a scene, hand
 that scene to the app, and then drive the program loop from their own example or
-binary. Callers should not need to implement traits just to put text and simple
-surfaces on screen.
+binary.
 
 The first API target is text and tree-like content on 2D surfaces. Later, the
 same shape should extend to organizing 3D surfaces.
 
 ## Todos
 
-- sdf
+- vertice mode -> uniform?
 - text wrapping?
-- mouse/keyboard events
+- keyboard events
 - tree of text panes, auto layout
 
 ## Running

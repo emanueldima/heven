@@ -6,8 +6,8 @@ pub struct Text {
     pub(crate) spans: Vec<TextSpan>,
 }
 
-pub const FONT_SIZE: f32 = 16.0;
-pub const LINE_HEIGHT: f32 = 16.0;
+pub const FONT_SIZE: f32 = 32.0;
+pub const LINE_HEIGHT: f32 = 48.0;
 
 impl Text {
     pub fn new(start: [f32; 2], spans: Vec<TextSpan>) -> Self {

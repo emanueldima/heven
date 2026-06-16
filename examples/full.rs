@@ -1,21 +1,21 @@
 use {
     anyhow::Result,
     heven::{
-        App, Frame, Options, PhysicalSize, Scene, Surface, Text, TextSpan, TextStyle, oklch, rgb,
-        rgba,
+        App, Frame, InputEvent, Options, PhysicalSize, Scene, Surface, Text, TextSpan, TextStyle,
+        oklch, rgb, rgba,
     },
 };
 
 fn main() -> Result<()> {
     env_logger::init();
 
-    let mut surface1 = Surface::new([-1.0, 0.7, 6.0]);
+    let mut surface1 = Surface::new([-1.5, 0.7, 6.0]);
     {
         let mut frame = Frame::new([0.0, 0.0], [1.8, 1.8], rgba(80, 120, 180, 32));
         for (line_index, line) in include_str!("../README.md").lines().enumerate() {
             frame.add(Text::new(
                 [0.0, line_index as f32 * 0.08],
-                vec![TextSpan::new(line, TextStyle::new(rgb(20, 30, 40)))],
+                vec![TextSpan::new(line, TextStyle::new(rgb(0, 0, 0)))],
             ));
         }
         surface1.add(frame);
@@ -66,14 +66,32 @@ fn main() -> Result<()> {
     let mut app = App::new(Options {
         title: "Heven full example",
         size: PhysicalSize::new(1600, 900),
+        use_sdf_text: true,
     });
 
+    let mut surface2_x = 1.0;
     app.animate(move |scene, dt| {
-        scene.camera.position([
-            scene.camera.x() + dt * 0.01,
-            scene.camera.y(),
-            (scene.camera.z() - dt * 1.0).max(20.0),
-        ]);
+        surface2_x -= dt * 0.01;
+        scene.position_surface(1, [surface2_x, 0.6, 12.0]);
+    });
+    app.input(|scene, event| match event {
+        InputEvent::MouseWheel { delta, command } => {
+            if command {
+                let zoom = (-delta[1] * 0.1).exp();
+                let z = (scene.camera.z() * zoom).clamp(5.0, 30.0);
+                scene
+                    .camera
+                    .position([scene.camera.x(), scene.camera.y(), z]);
+                return;
+            }
+
+            let pan = scene.camera.z() * 0.02;
+            scene.camera.position([
+                scene.camera.x() - delta[0] * pan,
+                scene.camera.y() + delta[1] * pan,
+                scene.camera.z(),
+            ]);
+        }
     });
 
     app.render(scene);

@@ -36,6 +36,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         return input.color;
     }
 
-    let alpha = textureSample(atlas, atlas_sampler, input.tex_coord).r;
+    let sample = textureSample(atlas, atlas_sampler, input.tex_coord).r;
+    if input.mode < 1.5 {
+        return vec4<f32>(input.color.rgb, input.color.a * sample);
+    }
+
+    let distance = sample;
+    let width = max(fwidth(distance) * 1.5, 0.004);
+    let alpha = smoothstep(0.5 - width, 0.5 + width, distance);
     return vec4<f32>(input.color.rgb, input.color.a * alpha);
 }

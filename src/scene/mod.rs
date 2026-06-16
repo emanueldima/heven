@@ -40,6 +40,15 @@ impl Scene {
         self.content_version += 1;
         self
     }
+
+    pub fn position_surface(&mut self, index: usize, origin: [f32; 3]) -> &mut Self {
+        let Some(surface) = self.surfaces.get_mut(index) else {
+            return self;
+        };
+        surface.origin = origin;
+        self.content_version += 1;
+        self
+    }
 }
 
 impl Default for Scene {

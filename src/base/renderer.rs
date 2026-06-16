@@ -70,12 +70,21 @@ impl Renderer {
         let mut config = surface
             .get_default_config(&adapter, size.width.max(1), size.height.max(1))
             .context("surface is not supported by the selected adapter")?;
-        config.format = surface
-            .get_capabilities(&adapter)
+        let capabilities = surface.get_capabilities(&adapter);
+        config.format = capabilities
             .formats
-            .into_iter()
+            .iter()
+            .copied()
             .find(wgpu::TextureFormat::is_srgb)
             .context("surface does not support an sRGB format")?;
+        log::debug!(
+            "surface capabilities: formats={:?}, present_modes={:?}, alpha_modes={:?}, usages={:?}",
+            capabilities.formats,
+            capabilities.present_modes,
+            capabilities.alpha_modes,
+            capabilities.usages,
+        );
+        log_surface_config("created", &config);
         surface.configure(&device, &config);
 
         Ok(Self {
@@ -248,6 +257,7 @@ impl Renderer {
 
         self.config.width = size.width;
         self.config.height = size.height;
+        log_surface_config("resized", &self.config);
         self.surface.configure(&self.device, &self.config);
     }
 
@@ -255,6 +265,25 @@ impl Renderer {
         if self.config.width == 0 || self.config.height == 0 {
             return RenderStatus::Waiting;
         }
+
+        let frame = match self.surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(frame)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
+                log::debug!("surface texture unavailable: outdated/lost, reconfiguring");
+                self.surface.configure(&self.device, &self.config);
+                return RenderStatus::NeedsRedraw;
+            }
+            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
+                log::debug!("surface texture unavailable: timeout/occluded");
+                return RenderStatus::Waiting;
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                log::debug!("surface texture unavailable: validation");
+                return RenderStatus::Waiting;
+            }
+        };
+
         if let Some(resources) = &mut self.resources {
             let aspect = self.config.width as f32 / self.config.height as f32;
             self.queue.write_buffer(
@@ -307,18 +336,6 @@ impl Renderer {
             }
         }
 
-        let frame = match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(frame)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
-            wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                self.surface.configure(&self.device, &self.config);
-                return RenderStatus::NeedsRedraw;
-            }
-            wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded => {
-                return RenderStatus::NeedsRedraw;
-            }
-            wgpu::CurrentSurfaceTexture::Validation => return RenderStatus::Waiting,
-        };
         let view = frame
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
@@ -363,4 +380,20 @@ impl Renderer {
         frame.present();
         RenderStatus::Presented
     }
+}
+
+fn log_surface_config(label: &str, config: &wgpu::SurfaceConfiguration) {
+    log::debug!(
+        concat!(
+            "surface {}: size={}x{}, format={:?}, present_mode={:?}, ",
+            "alpha_mode={:?}, max_frame_latency={}"
+        ),
+        label,
+        config.width,
+        config.height,
+        config.format,
+        config.present_mode,
+        config.alpha_mode,
+        config.desired_maximum_frame_latency,
+    );
 }

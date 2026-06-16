@@ -7,7 +7,7 @@
 )]
 
 pub use {
-    base::app::{App, Options},
+    base::app::{App, InputEvent, Options},
     scene::{
         Camera, Frame, LinearRGB, Scene, Surface, Text, TextSpan, TextStyle, hsl, oklch, rgb, rgba,
     },

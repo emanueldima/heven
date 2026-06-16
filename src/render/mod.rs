@@ -1,6 +1,7 @@
 mod atlas;
 mod geometry;
 mod prepare;
+mod sdf;
 
 pub(crate) use atlas::GlyphAtlas;
 pub(crate) use geometry::Vertex;
