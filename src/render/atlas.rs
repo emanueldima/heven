@@ -13,7 +13,6 @@ pub(crate) struct GlyphAtlas {
     cursor: [usize; 2],
     row_height: usize,
     version: u64,
-    use_sdf: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -27,16 +26,17 @@ impl GlyphAtlas {
     pub(crate) const SIZE: usize = 1024;
     pub(crate) const SDF_SCALE: usize = 3;
 
-    pub(crate) fn new(width: usize, height: usize, use_sdf: bool) -> Self {
+    pub(crate) fn new(width: usize, height: usize) -> Self {
+        let mut pixels = vec![0; width * height];
+        pixels[0] = 255;
         Self {
-            pixels: vec![0; width * height],
+            pixels,
             width,
             height,
             entries: HashMap::new(),
-            cursor: [0, 0],
+            cursor: [0, 1],
             row_height: 0,
             version: 1,
-            use_sdf,
         }
     }
 
@@ -50,6 +50,7 @@ impl GlyphAtlas {
             return Some(*entry);
         }
 
+        log::debug!("insert atlas image");
         let image = swash_cache.get_image(font_system, cache_key).as_ref()?;
         if image.content != SwashContent::Mask {
             return None;
@@ -59,26 +60,24 @@ impl GlyphAtlas {
             image.placement.width as usize,
             image.placement.height as usize,
         ];
-        let scale = if self.use_sdf { Self::SDF_SCALE } else { 1 };
         let size = [
-            source_size[0].div_ceil(scale) + GLYPH_PADDING * 2,
-            source_size[1].div_ceil(scale) + GLYPH_PADDING * 2,
+            source_size[0].div_ceil(Self::SDF_SCALE) + GLYPH_PADDING * 2,
+            source_size[1].div_ceil(Self::SDF_SCALE) + GLYPH_PADDING * 2,
         ];
         let offset = [
-            image.placement.left as f32 / scale as f32 - GLYPH_PADDING as f32,
-            -image.placement.top as f32 / scale as f32 - GLYPH_PADDING as f32,
+            image.placement.left as f32 / Self::SDF_SCALE as f32 - GLYPH_PADDING as f32,
+            -image.placement.top as f32 / Self::SDF_SCALE as f32 - GLYPH_PADDING as f32,
         ];
         let origin = self.reserve(size)?;
-        let mask = padded_mask(&image.data, source_size, size, scale);
-        let pixels = if self.use_sdf {
-            downsample(
-                &sdf::sdf(&mask, [size[0] * scale, size[1] * scale]),
-                size,
-                scale,
-            )
-        } else {
-            mask
-        };
+        let mask = padded_mask(&image.data, source_size, size, Self::SDF_SCALE);
+        let pixels = downsample(
+            &sdf::sdf(
+                &mask,
+                [size[0] * Self::SDF_SCALE, size[1] * Self::SDF_SCALE],
+            ),
+            size,
+            Self::SDF_SCALE,
+        );
         for y in 0..size[1] {
             let source = y * size[0];
             let target = (origin[1] + y) * self.width + origin[0];
@@ -108,8 +107,9 @@ impl GlyphAtlas {
         self.version
     }
 
-    pub(crate) fn uses_sdf(&self) -> bool {
-        self.use_sdf
+    pub(crate) fn solid_tex_coords(&self) -> [[f32; 2]; 4] {
+        let tex_coord = [0.5 / self.width as f32, 0.5 / self.height as f32];
+        [tex_coord; 4]
     }
 
     fn reserve(&mut self, size: [usize; 2]) -> Option<[usize; 2]> {

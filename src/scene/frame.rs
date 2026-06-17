@@ -5,7 +5,7 @@ pub struct Frame {
     pub(crate) origin: [f32; 2],
     pub(crate) size: [f32; 2],
     pub(crate) background: LinearRGB,
-    pub(crate) elements: Vec<Text>,
+    pub(crate) texts: Vec<Text>,
 }
 
 impl Frame {
@@ -14,12 +14,12 @@ impl Frame {
             origin,
             size,
             background,
-            elements: Vec::new(),
+            texts: Vec::new(),
         }
     }
 
     pub fn add(&mut self, text: Text) -> &mut Self {
-        self.elements.push(text);
+        self.texts.push(text);
         self
     }
 }

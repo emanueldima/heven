@@ -23,7 +23,7 @@ use {
 pub struct Options {
     pub title: &'static str,
     pub size: PhysicalSize<u32>,
-    pub use_sdf_text: bool,
+    pub font_name: &'static str,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -56,7 +56,7 @@ impl App {
             window: None,
             renderer: None,
             scene: None,
-            scene_render_cache: SceneRenderCache::new(options.use_sdf_text),
+            scene_render_cache: SceneRenderCache::new(options.font_name),
             animation: None,
             input_handler: None,
             frame_clock: FrameClock::default(),
@@ -68,7 +68,7 @@ impl App {
     }
 
     pub fn render(&mut self, scene: Scene) {
-        self.scene_render_cache = SceneRenderCache::new(self.options.use_sdf_text);
+        self.scene_render_cache = SceneRenderCache::new(self.options.font_name);
         self.scene = Some(scene);
         self.needs_redraw = true;
     }
@@ -308,6 +308,7 @@ impl ApplicationHandler for App {
         if (self.needs_redraw || (self.animation.is_some() && self.scene.is_some()))
             && let Some(window) = &self.window
         {
+            // todo ai: not when self.animation.is_some, but when the scene content has changed
             window.request_redraw();
         }
     }
@@ -321,10 +322,9 @@ impl App {
             return;
         };
 
-        let now = Instant::now();
-        let frame_start = now;
+        let frame_start = Instant::now();
         if let Some(animation) = &mut self.animation {
-            animation(scene, self.frame_clock.frame_delta(now));
+            animation(scene, self.frame_clock.frame_delta(frame_start));
         }
 
         let prepare_start = Instant::now();
@@ -336,7 +336,7 @@ impl App {
         self.needs_redraw = matches!(render_status, RenderStatus::NeedsRedraw);
         self.next_redraw_time = match render_status {
             RenderStatus::Presented | RenderStatus::NeedsRedraw => None,
-            RenderStatus::Waiting => Some(now + REDRAW_BACKOFF),
+            RenderStatus::Waiting => Some(frame_start + REDRAW_BACKOFF),
         };
         self.frame_clock.log_frame(
             render_status,
@@ -344,12 +344,12 @@ impl App {
             prepare_time,
             scene_render_data.shaping_time,
             render_time,
-            now,
+            frame_start,
         );
     }
 }
 
-const REDRAW_BACKOFF: Duration = Duration::from_millis(100);
+const REDRAW_BACKOFF: Duration = Duration::from_millis(17);
 
 fn log_window_state(window: &Window, label: &str) {
     let physical_size = window.inner_size();

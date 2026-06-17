@@ -11,7 +11,7 @@ same shape should extend to organizing 3D surfaces.
 
 ## Todos
 
-- vertice mode -> uniform?
+- when the scene does not change we should do no work at all
 - text wrapping?
 - keyboard events
 - tree of text panes, auto layout

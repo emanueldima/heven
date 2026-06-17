@@ -6,7 +6,7 @@ mod text;
 
 pub use {
     camera::Camera,
-    color::{LinearRGB, hsl, oklch, rgb, rgba},
+    color::{LinearRGB, hsl, max_chroma, oklch, rgb, rgba},
     frame::Frame,
     surface::Surface,
     text::{FONT_SIZE, LINE_HEIGHT, Text, TextSpan, TextStyle},
@@ -41,13 +41,13 @@ impl Scene {
         self
     }
 
-    pub fn position_surface(&mut self, index: usize, origin: [f32; 3]) -> &mut Self {
-        let Some(surface) = self.surfaces.get_mut(index) else {
-            return self;
-        };
-        surface.origin = origin;
+    pub fn surface_position_mut(&mut self, index: usize) -> Option<&mut [f32; 3]> {
         self.content_version += 1;
-        self
+        if let Some(surface) = self.surfaces.get_mut(index) {
+            Some(&mut surface.origin)
+        } else {
+            None
+        }
     }
 }
 

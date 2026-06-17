@@ -31,18 +31,26 @@ pub fn rgba(red: u8, green: u8, blue: u8, alpha: u8) -> LinearRGB {
 pub fn oklch(lightness: f32, chroma: f32, hue: f32) -> LinearRGB {
     let lightness = lightness.clamp(0.0, 1.0);
     let chroma = chroma.max(0.0);
-    let hue = hue.rem_euclid(360.0).to_radians();
-    let a = chroma * hue.cos();
-    let b = chroma * hue.sin();
-    let l = (lightness + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
-    let m = (lightness - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
-    let s = (lightness - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+    let [red, green, blue] = linear_rgb_from_oklch(lightness, chroma, hue);
+    rgb(srgb_byte(red), srgb_byte(green), srgb_byte(blue))
+}
 
-    rgb(
-        srgb_byte(4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s),
-        srgb_byte(-1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s),
-        srgb_byte(-0.004_196_086_3 * l - 0.703_418_6 * m + 1.707_614_7 * s),
-    )
+pub fn max_chroma(lightness: f32, hue: f32) -> f32 {
+    let lightness = lightness.clamp(0.0, 1.0);
+    let hue = hue.rem_euclid(360.0);
+    let mut min = 0.0;
+    let mut max = 0.5;
+
+    for _ in 0..20 {
+        let chroma = (min + max) * 0.5;
+        if in_gamut(linear_rgb_from_oklch(lightness, chroma, hue)) {
+            min = chroma;
+        } else {
+            max = chroma;
+        }
+    }
+
+    min
 }
 
 pub fn hsl(hue: f32, saturation: f32, lightness: f32) -> LinearRGB {
@@ -94,4 +102,23 @@ fn srgb_byte(value: f32) -> u8 {
         1.055 * value.powf(1.0 / 2.4) - 0.055
     };
     (value.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+fn linear_rgb_from_oklch(lightness: f32, chroma: f32, hue: f32) -> [f32; 3] {
+    let hue = hue.to_radians();
+    let a = chroma * hue.cos();
+    let b = chroma * hue.sin();
+    let l = (lightness + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);
+    let m = (lightness - 0.105_561_346 * a - 0.063_854_17 * b).powi(3);
+    let s = (lightness - 0.089_484_18 * a - 1.291_485_5 * b).powi(3);
+
+    [
+        4.076_741_7 * l - 3.307_711_6 * m + 0.230_969_94 * s,
+        -1.268_438 * l + 2.609_757_4 * m - 0.341_319_38 * s,
+        -0.004_196_086_3 * l - 0.703_418_6 * m + 1.707_614_7 * s,
+    ]
+}
+
+fn in_gamut(rgb: [f32; 3]) -> bool {
+    rgb.into_iter().all(|value| (0.0..=1.0).contains(&value))
 }

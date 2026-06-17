@@ -4,7 +4,6 @@ pub(crate) struct Vertex {
     position: [f32; 3],
     color: [u8; 4],
     tex_coord: [f32; 2],
-    mode: f32,
 }
 
 pub(crate) const QUAD_VERTEX_COUNT: usize = 6;
@@ -15,7 +14,6 @@ pub(crate) fn push_quad(
     size: [f32; 2],
     color: [u8; 4],
     tex_coords: [[f32; 2]; 4],
-    mode: f32,
 ) {
     let corners = [
         [top_left[0], top_left[1] - size[1]],
@@ -28,7 +26,6 @@ pub(crate) fn push_quad(
             position: [corners[index][0], corners[index][1], top_left[2]],
             color,
             tex_coord: tex_coords[index],
-            mode,
         });
     }
 }

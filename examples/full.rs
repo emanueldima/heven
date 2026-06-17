@@ -2,27 +2,31 @@ use {
     anyhow::Result,
     heven::{
         App, Frame, InputEvent, Options, PhysicalSize, Scene, Surface, Text, TextSpan, TextStyle,
-        oklch, rgb, rgba,
+        max_chroma, oklch, rgb, rgba,
     },
 };
 
 fn main() -> Result<()> {
     env_logger::init();
 
-    let mut surface1 = Surface::new([-1.5, 0.7, 6.0]);
+    let mut scene = Scene::new();
+    scene.background(rgb(255, 253, 245));
+
     {
-        let mut frame = Frame::new([0.0, 0.0], [1.8, 1.8], rgba(80, 120, 180, 32));
+        let mut surface = Surface::new([-1.5, 0.7, 8.0]);
+        let mut frame = Frame::new([0.0, 0.0], [3.0, 12.0], rgba(80, 120, 180, 32));
         for (line_index, line) in include_str!("../README.md").lines().enumerate() {
             frame.add(Text::new(
                 [0.0, line_index as f32 * 0.08],
                 vec![TextSpan::new(line, TextStyle::new(rgb(0, 0, 0)))],
             ));
         }
-        surface1.add(frame);
+        surface.add(frame);
+        scene.add(surface);
     }
 
-    let mut surface2 = Surface::new([1.0, 0.6, 12.0]);
     {
+        let mut surface = Surface::new([1.0, 0.6, 9.0]);
         let mut frame = Frame::new([0.0, 0.0], [0.6, 0.32], rgba(240, 180, 60, 48));
         frame.add(Text::new(
             [0.0, 0.0],
@@ -35,45 +39,54 @@ fn main() -> Result<()> {
             [0.0, 0.16],
             vec![TextSpan::new("World", TextStyle::new(rgb(0, 50, 0)))],
         ));
-        surface2.add(frame);
+        surface.add(frame);
+        scene.add(surface);
+    }
 
-        let mut frame = Frame::new([-0.05, 0.45], [1.05, 0.72], rgba(0, 0, 0, 0));
-        let text = "********************************";
+    for surface_index in 0..10 {
+        let mut surface = Surface::new([0.0, 0.0, 2.0 + surface_index as f32 / 5.0]);
+        let mut frame = Frame::new([0.0, 0.0], [0.0, 0.0], rgba(0, 0, 0, 0));
+        let text = "•".repeat(32);
         let mut spans = Vec::new();
-        for row in 0..8 {
-            let lightness = 0.25 + row as f32 / 7.0 * 0.65;
+        let lightness = 0.1 + surface_index as f32 * 0.09; // [0.1, 0.91]
+        for row in 0..10 {
             if row > 0 {
                 spans.push(TextSpan::new("\n", TextStyle::new(rgb(0, 0, 0))));
             }
+            let chroma = 0.04 + row as f32 * 0.02;
             for (column, character) in text.chars().enumerate() {
-                let hue = column as f32 / text.len() as f32 * 360.0;
+                let hue = column as f32 / text.chars().count() as f32 * 360.0;
+                let max_c = max_chroma(lightness, hue);
+                log::debug!(
+                    "hue {:.1}, lightness {:.1}, chroma {:.1}, max_chroma: {:.1}",
+                    hue,
+                    lightness,
+                    chroma,
+                    max_c
+                );
+                let c = if chroma > max_c { 0.0 } else { chroma };
+                let l = if chroma > max_c { 0.9 } else { lightness };
                 spans.push(TextSpan::new(
                     &character.to_string(),
-                    TextStyle::new(oklch(lightness, 0.37, hue)),
+                    TextStyle::new(oklch(l, c, hue)),
                 ));
             }
         }
         frame.add(Text::new([0.0, 0.0], spans));
-        surface2.add(frame);
+        surface.add(frame);
+        scene.add(surface);
     }
-
-    let mut scene = Scene::new();
-    scene
-        .background(rgb(255, 253, 245))
-        .add(surface1)
-        .add(surface2);
 
     let mut app = App::new(Options {
         title: "Heven full example",
         size: PhysicalSize::new(1600, 900),
-        use_sdf_text: true,
+        font_name: "Monaco", // "Helvetica Neue"
     });
 
-    let mut surface2_x = 1.0;
     app.animate(move |scene, dt| {
-        surface2_x -= dt * 0.01;
-        scene.position_surface(1, [surface2_x, 0.6, 12.0]);
+        scene.surface_position_mut(1).unwrap()[2] -= dt * 0.02;
     });
+
     app.input(|scene, event| match event {
         InputEvent::MouseWheel { delta, command } => {
             if command {

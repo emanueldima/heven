@@ -25,10 +25,17 @@ struct RenderResources {
     atlas_bind_group: wgpu::BindGroup,
     atlas_texture: wgpu::Texture,
     atlas_version: u64,
+    surface_bind_group_layout: wgpu::BindGroupLayout,
+    surfaces: Vec<SurfaceResources>,
+}
+
+#[derive(Debug)]
+struct SurfaceResources {
+    surface_bind_group: wgpu::BindGroup,
+    surface_buffer: wgpu::Buffer,
     vertex_buffer: wgpu::Buffer,
-    vertex_content_version: u64,
+    content_version: u64,
     vertex_capacity: usize,
-    vertex_count: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -100,7 +107,7 @@ impl Renderer {
         let device = &self.device;
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("scene shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/scene.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../render/scene.wgsl").into()),
         });
         let camera_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -138,11 +145,26 @@ impl Renderer {
                     },
                 ],
             });
+        let surface_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("surface bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("pipeline layout"),
             bind_group_layouts: &[
                 Some(&camera_bind_group_layout),
                 Some(&atlas_bind_group_layout),
+                Some(&surface_bind_group_layout),
             ],
             immediate_size: 0,
         });
@@ -160,7 +182,6 @@ impl Renderer {
                         0 => Float32x3,
                         1 => Unorm8x4,
                         2 => Float32x2,
-                        3 => Float32,
                     ],
                 }],
             },
@@ -179,11 +200,6 @@ impl Renderer {
             }),
             multiview_mask: None,
             cache: None,
-        });
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("scene vertices"),
-            contents: &[],
-            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
         });
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("camera"),
@@ -243,10 +259,8 @@ impl Renderer {
             atlas_bind_group,
             atlas_texture,
             atlas_version: 0,
-            vertex_buffer,
-            vertex_content_version: 0,
-            vertex_capacity: 0,
-            vertex_count: 0,
+            surface_bind_group_layout,
+            surfaces: Vec::new(),
         });
     }
 
@@ -266,6 +280,7 @@ impl Renderer {
             return RenderStatus::Waiting;
         }
 
+        // seems that get_current_texture waits for vsync, it takes many ms
         let frame = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(frame)
             | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
@@ -314,25 +329,72 @@ impl Renderer {
                 );
                 resources.atlas_version = scene.glyph_atlas.version();
             }
-            if resources.vertex_content_version != scene.content_version {
-                if scene.vertices.len() > resources.vertex_capacity {
+            while resources.surfaces.len() < scene.surface_caches.len() {
+                let surface_buffer =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("surface"),
+                            contents: bytemuck::cast_slice(&[0.0_f32, 0.0, 0.0, 0.0]),
+                            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                        });
+                let surface_bind_group =
+                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        label: Some("surface bind group"),
+                        layout: &resources.surface_bind_group_layout,
+                        entries: &[wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: surface_buffer.as_entire_binding(),
+                        }],
+                    });
+                resources.surfaces.push(SurfaceResources {
+                    surface_bind_group,
+                    surface_buffer,
+                    vertex_buffer: self.device.create_buffer_init(
+                        &wgpu::util::BufferInitDescriptor {
+                            label: Some("surface vertices"),
+                            contents: &[],
+                            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                        },
+                    ),
+                    content_version: 0,
+                    vertex_capacity: 0,
+                });
+            }
+            resources.surfaces.truncate(scene.surface_caches.len());
+            for (index, surface) in scene.surface_caches.iter().enumerate() {
+                let resources = &mut resources.surfaces[index];
+                if resources.content_version == surface.content_version {
+                    continue;
+                }
+                if surface.vertices.len() > resources.vertex_capacity {
                     resources.vertex_buffer =
                         self.device
                             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                                label: Some("scene vertices"),
-                                contents: bytemuck::cast_slice(scene.vertices),
+                                label: Some("surface vertices"),
+                                contents: bytemuck::cast_slice(&surface.vertices),
                                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                             });
-                    resources.vertex_capacity = scene.vertices.len();
+                    resources.vertex_capacity = surface.vertices.len();
                 } else {
                     self.queue.write_buffer(
                         &resources.vertex_buffer,
                         0,
-                        bytemuck::cast_slice(scene.vertices),
+                        bytemuck::cast_slice(&surface.vertices),
                     );
                 }
-                resources.vertex_count = scene.vertices.len() as u32;
-                resources.vertex_content_version = scene.content_version;
+                resources.content_version = surface.content_version;
+            }
+            for surface in scene.surfaces {
+                self.queue.write_buffer(
+                    &resources.surfaces[surface.cache_index].surface_buffer,
+                    0,
+                    bytemuck::cast_slice(&[
+                        surface.origin[0],
+                        surface.origin[1],
+                        surface.origin[2],
+                        0.0,
+                    ]),
+                );
             }
         }
 
@@ -371,8 +433,14 @@ impl Renderer {
                 pass.set_pipeline(&resources.render_pipeline);
                 pass.set_bind_group(0, &resources.camera_bind_group, &[]);
                 pass.set_bind_group(1, &resources.atlas_bind_group, &[]);
-                pass.set_vertex_buffer(0, resources.vertex_buffer.slice(..));
-                pass.draw(0..resources.vertex_count, 0..1);
+                for surface in scene.surfaces {
+                    let resource = &resources.surfaces[surface.cache_index];
+                    let vertex_count =
+                        scene.surface_caches[surface.cache_index].vertices.len() as u32;
+                    pass.set_bind_group(2, &resource.surface_bind_group, &[]);
+                    pass.set_vertex_buffer(0, resource.vertex_buffer.slice(..));
+                    pass.draw(0..vertex_count, 0..1);
+                }
             }
         }
 
