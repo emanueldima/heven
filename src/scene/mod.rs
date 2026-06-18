@@ -9,7 +9,7 @@ pub use {
     color::{LinearRGB, hsl, max_chroma, oklch, rgb, rgba},
     frame::Frame,
     surface::Surface,
-    text::{FONT_SIZE, LINE_HEIGHT, Text, TextSpan, TextStyle},
+    text::{FONT_SIZE, LINE_HEIGHT, TEXT_SCALE, Text, TextBounds, TextSpan, TextStyle},
 };
 
 #[derive(Clone, Debug)]

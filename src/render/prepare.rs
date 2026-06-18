@@ -4,7 +4,7 @@ use {
         atlas::AtlasEntry,
         geometry::{self, push_quad},
     },
-    crate::scene::{Camera, FONT_SIZE, LINE_HEIGHT, Scene, Text},
+    crate::scene::{Camera, FONT_SIZE, LINE_HEIGHT, Scene, TEXT_SCALE, Text},
     cosmic_text::{Attrs, Buffer, Color, FontSystem, LayoutGlyph, Metrics, Shaping, SwashCache},
     std::{
         collections::HashMap,
@@ -72,6 +72,15 @@ impl SceneRenderCache {
             content_version: 0,
         }
     }
+
+    pub(crate) fn invalidate(&mut self) {
+        self.surfaces.clear();
+        self.shaping_cache.clear();
+        self.content_version = 0;
+        for surface_cache in &mut self.surface_caches {
+            surface_cache.content_version = 0;
+        }
+    }
 }
 
 pub(crate) fn prepare_scene<'a>(
@@ -89,7 +98,7 @@ pub(crate) fn prepare_scene<'a>(
         };
     }
 
-    let t0 = Instant::now();
+    let _t0 = Instant::now();
     cache.surfaces.clear();
     cache
         .surface_caches
@@ -160,7 +169,7 @@ pub(crate) fn prepare_scene<'a>(
     }
     cache.content_version = scene.content_version;
 
-    log::debug!("prepare scene: {:?}", t0.elapsed());
+    // log::debug!("prepare scene: {:?}", _t0.elapsed());
     SceneRenderData {
         surfaces: &cache.surfaces,
         surface_caches: &cache.surface_caches,
@@ -171,7 +180,6 @@ pub(crate) fn prepare_scene<'a>(
     }
 }
 
-const TEXT_SCALE: f32 = 0.0025;
 pub const TEXT_METRICS: Metrics = Metrics::new(FONT_SIZE, LINE_HEIGHT);
 
 fn push_shaped_text_quads(

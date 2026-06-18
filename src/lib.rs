@@ -9,8 +9,8 @@
 pub use {
     base::app::{App, InputEvent, Options},
     scene::{
-        Camera, Frame, LinearRGB, Scene, Surface, Text, TextSpan, TextStyle, hsl, max_chroma,
-        oklch, rgb, rgba,
+        Camera, Frame, LinearRGB, Scene, Surface, Text, TextBounds, TextSpan, TextStyle, hsl,
+        max_chroma, oklch, rgb, rgba,
     },
     winit::dpi::PhysicalSize,
 };

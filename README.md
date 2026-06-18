@@ -63,7 +63,7 @@ rendered inline, where each span has its own style.
 The transform stack for text is:
 
 ```text
-surface origin + surface-local frame origin + frame-local text start + glyph layout position
+surface origin + surface-local frame origin + frame-local text start + glyph position
 ```
 
 The scene API tracks a content version for geometry-affecting changes. Camera

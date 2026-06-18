@@ -6,20 +6,34 @@ use {
     },
 };
 
+const TEXT_MARGIN: f32 = 0.08;
+
 fn main() -> Result<()> {
     env_logger::init();
 
+    let mut app = App::new(Options {
+        title: "Heven full example",
+        size: PhysicalSize::new(1600, 900),
+        // font_name: "Monaco",
+        font_name: "Helvetica Neue",
+    });
     let mut scene = Scene::new();
     scene.background(rgb(255, 253, 245));
 
     {
         let mut surface = Surface::new([-1.5, 0.7, 8.0]);
-        let mut frame = Frame::new([0.0, 0.0], [3.0, 12.0], rgba(80, 120, 180, 32));
+        let mut frame = Frame::new([0.0, 0.0], [0.0, 0.0], rgba(80, 120, 180, 32));
         for (line_index, line) in include_str!("../README.md").lines().enumerate() {
             frame.add(Text::new(
-                [0.0, line_index as f32 * 0.08],
+                [TEXT_MARGIN, TEXT_MARGIN + line_index as f32 * 0.08],
                 vec![TextSpan::new(line, TextStyle::new(rgb(0, 0, 0)))],
             ));
+        }
+        if let Some(bounds) = app.text_bounds(&frame) {
+            frame.size([
+                bounds.origin[0] + bounds.size[0] + TEXT_MARGIN,
+                bounds.origin[1] + bounds.size[1] + TEXT_MARGIN,
+            ]);
         }
         surface.add(frame);
         scene.add(surface);
@@ -27,18 +41,24 @@ fn main() -> Result<()> {
 
     {
         let mut surface = Surface::new([1.0, 0.6, 9.0]);
-        let mut frame = Frame::new([0.0, 0.0], [0.6, 0.32], rgba(240, 180, 60, 48));
+        let mut frame = Frame::new([0.0, 0.0], [0.0, 0.0], rgba(240, 180, 60, 48));
         frame.add(Text::new(
-            [0.0, 0.0],
+            [TEXT_MARGIN, TEXT_MARGIN],
             vec![
                 TextSpan::new("Hello", TextStyle::new(rgb(200, 0, 0))),
                 TextSpan::new(" inline", TextStyle::new(rgb(0, 20, 40))),
             ],
         ));
         frame.add(Text::new(
-            [0.0, 0.16],
+            [TEXT_MARGIN, TEXT_MARGIN + 0.16],
             vec![TextSpan::new("World", TextStyle::new(rgb(0, 50, 0)))],
         ));
+        if let Some(bounds) = app.text_bounds(&frame) {
+            frame.size([
+                bounds.origin[0] + bounds.size[0] + TEXT_MARGIN,
+                bounds.origin[1] + bounds.size[1] + TEXT_MARGIN,
+            ]);
+        }
         surface.add(frame);
         scene.add(surface);
     }
@@ -72,16 +92,16 @@ fn main() -> Result<()> {
                 ));
             }
         }
-        frame.add(Text::new([0.0, 0.0], spans));
+        frame.add(Text::new([TEXT_MARGIN, TEXT_MARGIN], spans));
+        if let Some(bounds) = app.text_bounds(&frame) {
+            frame.size([
+                bounds.origin[0] + bounds.size[0] + TEXT_MARGIN,
+                bounds.origin[1] + bounds.size[1] + TEXT_MARGIN,
+            ]);
+        }
         surface.add(frame);
         scene.add(surface);
     }
-
-    let mut app = App::new(Options {
-        title: "Heven full example",
-        size: PhysicalSize::new(1600, 900),
-        font_name: "Monaco", // "Helvetica Neue"
-    });
 
     app.animate(move |scene, dt| {
         scene.surface_position_mut(1).unwrap()[2] -= dt * 0.02;

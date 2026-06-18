@@ -22,6 +22,11 @@ impl Frame {
         self.texts.push(text);
         self
     }
+
+    pub fn size(&mut self, size: [f32; 2]) -> &mut Self {
+        self.size = size;
+        self
+    }
 }
 
 impl Default for Frame {

@@ -8,6 +8,13 @@ pub struct Text {
 
 pub const FONT_SIZE: f32 = 32.0;
 pub const LINE_HEIGHT: f32 = 48.0;
+pub const TEXT_SCALE: f32 = 0.0025;
+
+#[derive(Clone, Copy, Debug)]
+pub struct TextBounds {
+    pub origin: [f32; 2],
+    pub size: [f32; 2],
+}
 
 impl Text {
     pub fn new(start: [f32; 2], spans: Vec<TextSpan>) -> Self {
@@ -43,5 +50,18 @@ pub struct TextStyle {
 impl TextStyle {
     pub fn new(color: LinearRGB) -> Self {
         Self { color }
+    }
+}
+
+impl TextBounds {
+    pub fn union(self, other: Self) -> Self {
+        let left = self.origin[0].min(other.origin[0]);
+        let top = self.origin[1].min(other.origin[1]);
+        let right = (self.origin[0] + self.size[0]).max(other.origin[0] + other.size[0]);
+        let bottom = (self.origin[1] + self.size[1]).max(other.origin[1] + other.size[1]);
+        Self {
+            origin: [left, top],
+            size: [right - left, bottom - top],
+        }
     }
 }

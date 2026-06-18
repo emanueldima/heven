@@ -1,8 +1,8 @@
 use {
     super::renderer::{RenderStatus, Renderer},
     crate::{
-        render::{SceneRenderCache, prepare_scene},
-        scene::Scene,
+        render::{SceneRenderCache, frame_text_bounds, prepare_scene},
+        scene::{Frame, Scene, TextBounds},
     },
     anyhow::{Context, Result},
     std::{
@@ -43,6 +43,7 @@ pub struct App {
     animation: Option<Animation>,
     input_handler: Option<InputHandler>,
     frame_clock: FrameClock,
+    // todo ai: can we remove needs_redraw and use next_redraw_time only?
     needs_redraw: bool,
     next_redraw_time: Option<Instant>,
     window_occluded: bool,
@@ -68,9 +69,13 @@ impl App {
     }
 
     pub fn render(&mut self, scene: Scene) {
-        self.scene_render_cache = SceneRenderCache::new(self.options.font_name);
+        self.scene_render_cache.invalidate();
         self.scene = Some(scene);
         self.needs_redraw = true;
+    }
+
+    pub fn text_bounds(&mut self, frame: &Frame) -> Option<TextBounds> {
+        frame_text_bounds(&mut self.scene_render_cache.font_system, frame)
     }
 
     pub fn animate(&mut self, animation: impl FnMut(&mut Scene, f32) + 'static) -> &mut Self {
