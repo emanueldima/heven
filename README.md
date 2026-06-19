@@ -68,9 +68,12 @@ surface origin + surface-local frame origin + frame-local text start + glyph pos
 
 The scene API tracks a content version for geometry-affecting changes. Camera
 and background changes are frame state and do not invalidate prepared geometry.
-`SceneRenderCache` lives in the `render` module. It owns cached vertices, text
-layout state, and the glyph atlas, and turns scene content into `SceneRenderData`
-for the renderer.
+`FontSys` lives in the `font` module. It owns text layout state, glyph
+rasterization, SDF generation, and the CPU-side glyph atlas.
+
+`SceneRenderCache` lives in the `render` module. It owns cached vertices and
+surface ordering, and turns scene content into `SceneRenderData` for the
+renderer.
 
 ```rust
 let scene_render_data = prepare_scene(&mut scene_render_cache, scene);
@@ -84,10 +87,9 @@ rendering each redraw.
 uploaded glyph atlas version and uploaded vertex content version, then uploads
 only when the corresponding CPU-side version changes.
 
-Text layout uses `cosmic-text`. Glyphs are rasterized into a CPU-side alpha
-atlas, uploaded to the GPU, and drawn as textured quads. This is intentionally
-small for now: it proves the layout and atlas path without committing to the
-final font system.
+Text layout uses `cosmic-text` inside the crate-private font subsystem. Glyphs
+are rasterized into a CPU-side alpha atlas, uploaded to a GPU texture owned by
+the renderer, and drawn as textured quads.
 
 Surface origins are placed in WebGPU clip-space-like scene coordinates:
 
@@ -108,25 +110,33 @@ src/
   base/
     app.rs
     renderer.rs
-  render/
+  font/
     atlas.rs
+    mod.rs
+    sdf.rs
+  render/
     geometry.rs
     prepare.rs
+    scene.wgsl
   scene/
     color.rs
     frame.rs
     mod.rs
     surface.rs
     text.rs
-  shaders/
-    scene.wgsl
 ```
 
 `base` is the platform layer: app lifecycle, frame timing, window creation,
-renderer setup, GPU resources, and redraw scheduling.
+renderer setup, GPU resources, and redraw scheduling. `App` owns the shared
+`Rc<FontSys>`.
+
+`font` is the crate-private text subsystem: it owns the `cosmic-text` state,
+text measurement and shaping, glyph image generation, SDF conversion, and the
+CPU glyph atlas. It does not depend on `wgpu`.
 
 `scene` is the public content model: scene, surfaces, frames, text, spans, and
 styles.
 
-`render` is the crate-private preparation layer: it reads scene content, lays out
-text, manages the glyph atlas and render cache, and builds renderer vertices.
+`render` is the crate-private preparation layer: it reads scene content, asks
+the font subsystem for text quads, manages render caches, and builds renderer
+vertices.

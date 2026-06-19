@@ -112,6 +112,15 @@ impl GlyphAtlas {
         [tex_coord; 4]
     }
 
+    pub(crate) fn tex_coords(&self, entry: AtlasEntry) -> [[f32; 2]; 4] {
+        let size = self.size();
+        let left = entry.origin[0] as f32 / size[0] as f32;
+        let top = entry.origin[1] as f32 / size[1] as f32;
+        let right = (entry.origin[0] + entry.size[0]) as f32 / size[0] as f32;
+        let bottom = (entry.origin[1] + entry.size[1]) as f32 / size[1] as f32;
+        [[left, bottom], [right, bottom], [right, top], [left, top]]
+    }
+
     fn reserve(&mut self, size: [usize; 2]) -> Option<[usize; 2]> {
         if size[0] == 0 || size[1] == 0 || size[0] > self.width || size[1] > self.height {
             return None;

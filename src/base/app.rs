@@ -1,12 +1,14 @@
 use {
     super::renderer::{RenderStatus, Renderer},
     crate::{
-        render::{SceneRenderCache, frame_text_bounds, prepare_scene},
+        font::FontSys,
+        render::{SceneRenderCache, prepare_scene},
         scene::{Frame, Scene, TextBounds},
     },
     anyhow::{Context, Result},
     std::{
         fmt,
+        rc::Rc,
         sync::Arc,
         time::{Duration, Instant},
     },
@@ -39,6 +41,7 @@ pub struct App {
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
     scene: Option<Scene>,
+    font_sys: Rc<FontSys>,
     scene_render_cache: SceneRenderCache,
     animation: Option<Animation>,
     input_handler: Option<InputHandler>,
@@ -52,12 +55,14 @@ pub struct App {
 
 impl App {
     pub fn new(options: Options) -> Self {
+        let font_sys = Rc::new(FontSys::new(options.font_name));
         Self {
             options,
             window: None,
             renderer: None,
             scene: None,
-            scene_render_cache: SceneRenderCache::new(options.font_name),
+            font_sys: Rc::clone(&font_sys),
+            scene_render_cache: SceneRenderCache::new(font_sys),
             animation: None,
             input_handler: None,
             frame_clock: FrameClock::default(),
@@ -75,7 +80,7 @@ impl App {
     }
 
     pub fn text_bounds(&mut self, frame: &Frame) -> Option<TextBounds> {
-        frame_text_bounds(&mut self.scene_render_cache.font_system, frame)
+        self.font_sys.frame_text_bounds(frame)
     }
 
     pub fn animate(&mut self, animation: impl FnMut(&mut Scene, f32) + 'static) -> &mut Self {
@@ -105,6 +110,7 @@ impl fmt::Debug for App {
             .field("window", &self.window)
             .field("renderer", &self.renderer)
             .field("scene", &self.scene)
+            .field("font_sys", &self.font_sys)
             .field("scene_render_cache", &self.scene_render_cache)
             .field("animation", &self.animation.is_some())
             .field("input_handler", &self.input_handler.is_some())
@@ -117,6 +123,7 @@ impl fmt::Debug for App {
     }
 }
 
+// todo: move FrameClock to its own module
 #[derive(Debug, Default)]
 struct FrameClock {
     last_frame_time: Option<Instant>,
@@ -356,6 +363,7 @@ impl App {
 
 const REDRAW_BACKOFF: Duration = Duration::from_millis(17);
 
+// todo: move this to frameclock module
 fn log_window_state(window: &Window, label: &str) {
     let physical_size = window.inner_size();
     let scale_factor = window.scale_factor();

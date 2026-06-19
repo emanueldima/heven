@@ -1,6 +1,7 @@
 use {
     crate::{
-        render::{GlyphAtlas, SceneRenderData, Vertex},
+        font::FontSys,
+        render::{SceneRenderData, Vertex},
         scene::Camera,
     },
     anyhow::{Context, Result},
@@ -217,8 +218,8 @@ impl Renderer {
         let atlas_texture = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("glyph atlas"),
             size: wgpu::Extent3d {
-                width: GlyphAtlas::SIZE as u32,
-                height: GlyphAtlas::SIZE as u32,
+                width: FontSys::ATLAS_SIZE as u32,
+                height: FontSys::ATLAS_SIZE as u32,
                 depth_or_array_layers: 1,
             },
             mip_level_count: 1,
@@ -306,8 +307,10 @@ impl Renderer {
                 0,
                 bytemuck::cast_slice(&scene.camera.matrix(aspect)),
             );
-            if resources.atlas_version != scene.glyph_atlas.version() {
-                let atlas_size = scene.glyph_atlas.size();
+            let atlas_version = scene.font_sys.atlas_version();
+            if resources.atlas_version != atlas_version {
+                let atlas_size = scene.font_sys.atlas_size();
+                let atlas_pixels = scene.font_sys.atlas_pixels();
                 self.queue.write_texture(
                     wgpu::TexelCopyTextureInfo {
                         texture: &resources.atlas_texture,
@@ -315,7 +318,7 @@ impl Renderer {
                         origin: wgpu::Origin3d::ZERO,
                         aspect: wgpu::TextureAspect::All,
                     },
-                    scene.glyph_atlas.pixels(),
+                    &atlas_pixels,
                     wgpu::TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(atlas_size[0] as u32),
@@ -327,7 +330,7 @@ impl Renderer {
                         depth_or_array_layers: 1,
                     },
                 );
-                resources.atlas_version = scene.glyph_atlas.version();
+                resources.atlas_version = atlas_version;
             }
             while resources.surfaces.len() < scene.surface_caches.len() {
                 let surface_buffer =

@@ -16,6 +16,7 @@ pub use {
 };
 
 pub mod base;
+pub(crate) mod font;
 pub(crate) mod render;
 pub mod scene;
 
